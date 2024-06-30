@@ -2,36 +2,27 @@ import streamlit as st
 import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
-import json
 
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds = Credentials.from_service_account_file("C:/Users/Alijenab/PycharmProjects/pythonProject15/booming-voice-427922-g9-74d5f7eef6d6.json", scopes=scope)
+client = gspread.authorize(creds)
 
 sheet_url = "https://docs.google.com/spreadsheets/d/1zs_jjSotWm0Xb09NfVzamGEpzJkX-Gw1FEKBNtuju_0/edit?usp=sharing"
-csv_export_url = sheet_url.replace('/edit?usp=sharing', '/gviz/tq?tqx=out:csv')
+sheet = client.open_by_url(sheet_url).sheet1
 
-def get_data(url):
-    return pd.read_csv(url)
+def get_data():
+    data = sheet.get_all_records()
+    return pd.DataFrame(data)
 
 def add_data_to_sheet(data):
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = Credentials.from_service_account_file("myed.json", scopes=scope)
-    client = gspread.authorize(creds)
-    sheet = client.open_by_url(sheet_url).sheet1
     sheet.append_row(data)
 
 def update_data_in_sheet(row_index, data):
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = Credentials.from_service_account_file("myed.json", scopes=scope)
-    client = gspread.authorize(creds)
-    sheet = client.open_by_url(sheet_url).sheet1
     for col, value in enumerate(data, start=1):
-        sheet.update_cell(row_index, col, value)
+        sheet.update_cell(row_index + 2, col, value)
 
 def delete_data_in_sheet(row_index):
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = Credentials.from_service_account_file("myed.json", scopes=scope)
-    client = gspread.authorize(creds)
-    sheet = client.open_by_url(sheet_url).sheet1
-    sheet.delete_rows(row_index)
+    sheet.delete_rows(row_index + 2)
 
 st.set_page_config(
     page_title="My Google Sheet",
@@ -72,7 +63,7 @@ st.markdown("""
 st.title("📈 My Google Sheet 📉")
 
 st.header("⬇ My Data ⬇")
-data = get_data(csv_export_url)
+data = get_data()
 st.dataframe(data, width=1000, height=400)
 
 st.header("➕ Add New Data")
@@ -88,10 +79,11 @@ if submit_button:
     if any(new_data.values()):
         add_data_to_sheet(list(new_data.values()))
         st.success("Data added successfully")
+        st.experimental_rerun()
     else:
         st.error("Please fill in at least one field.")
 
-data = get_data(csv_export_url)
+data = get_data()
 st.header("📄 Updated Data")
 st.dataframe(data, width=1000, height=400)
 
@@ -110,10 +102,11 @@ if selected_row:
         if any(new_data.values()):
             update_data_in_sheet(selected_row, list(new_data.values()))
             st.success("Data updated successfully")
+            st.experimental_rerun()
         else:
             st.error("Please fill in at least one field.")
 
-    data = get_data(csv_export_url)
+    data = get_data()
     st.dataframe(data, width=1000, height=400)
 
 st.header("❌ Delete Data")
@@ -123,6 +116,7 @@ delete_button = st.button(label='Delete Data')
 if delete_button:
     delete_data_in_sheet(delete_row)
     st.success("Data deleted successfully")
+    st.experimental_rerun()
 
-    data = get_data(csv_export_url)
+    data = get_data()
     st.dataframe(data, width=1000, height=400)
