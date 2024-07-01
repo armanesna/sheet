@@ -1,149 +1,100 @@
 import streamlit as st
 import gspread
+from google.oauth2.service_account import Credentials
 import pandas as pd
 from datetime import datetime
-from google.oauth2.service_account import Credentials
 
-import streamlit as st
-from google.oauth2.service_account import Credentials
-import gspread
-
-
-# تنظیمات احراز هویت
+# Load the credentials from the JSON file
+credentials_path = '/mnt/data/booming-voice-427922-g9-3f3dcbe42752.json'
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-# مسیر فایل JSON را به صورت نسبی تنظیم کنید
-json_file_path = "booming-voice-427922-g9-3f3dcbe42752.json"
-
-# تنظیم محدوده دسترسی
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-
-# بارگذاری اعتبارنامه‌ها
-creds = Credentials.from_service_account_file(json_file_path, scopes=scope)
-
-# احراز هویت و دسترسی به Google Sheets
+creds = Credentials.from_service_account_file(credentials_path, scopes=scope)
 client = gspread.authorize(creds)
 
-# دسترسی به یک Sheet
-sheet = client.open("your-google-sheet-name").sheet1
+# Link to your Google Sheet
+spreadsheet_url = "https://docs.google.com/spreadsheets/d/1GB0HaR13Ygb14qe_wTc4DBNs_QWxegfhbRVMv-4WNto/edit?pli=1#gid=0"
 
-# خواندن داده‌ها از Sheet
-data = sheet.get_all_records()
+# Open the sheet
+spreadsheet = client.open_by_url(spreadsheet_url)
+worksheet = spreadsheet.sheet1
 
-# نمایش داده‌ها در Streamlit
-st.write(data)
-
-client = gspread.authorize(creds)
-
-sheet_url = "https://docs.google.com/spreadsheets/d/1zs_jjSotWm0Xb09NfVzamGEpzJkX-Gw1FEKBNtuju_0/edit?usp=sharing"
-sheet = client.open_by_url(sheet_url).sheet1
-
-def get_data():
-    data = sheet.get_all_records()
+# Function to read data from Google Sheet
+def read_data():
+    data = worksheet.get_all_records()
     return pd.DataFrame(data)
 
-def add_data_to_sheet(data):
-    sheet.append_row(data)
+# Function to add a new task to Google Sheet
+def add_task(task):
+    df = read_data()
+    new_task = pd.DataFrame([[task, '', 'pending']], columns=['Task', 'Date', 'Completed'])
+    updated_df = pd.concat([df, new_task], ignore_index=True)
+    worksheet.update([updated_df.columns.values.tolist()] + updated_df.values.tolist())
+    st.success('Task added successfully!')
+    st.balloons()  # Show balloons effect
+    st.experimental_rerun()  # Rerun to show the updated tasks
 
-def update_data_in_sheet(row_index, data):
-    for col, value in enumerate(data, start=1):
-        sheet.update_cell(row_index + 2, col, value)
-
-def delete_data_in_sheet(row_index):
-    sheet.delete_rows(row_index + 2)
-
-st.set_page_config(
-    page_title="My Google Sheet",
-    page_icon="📈📉",
-    layout="wide",
-)
-
-st.markdown("""
-    <style>
-        .main {
-            background-color: #000000;
-            color: #FFFFFF;
-        }
-        h1, h2 {
-            color: #FFD700;
-        }
-        .stButton button {
-            background-color: #FFD700;
-            color: #000000;
-        }
-        .stTextInput input {
-            border: 2px solid #FFD700;
-            padding: 10px;
-            border-radius: 5px;
-            background-color: #333333;
-            color: white;
-        }
-        .stDataFrame {
-            background-color: white;
-            color: black;
-        }
-        .css-1cpxqw2 a {
-            color: #FFD700;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
-st.title("📈 My Google Sheet 📉")
-
-st.header("⬇ My Data ⬇")
-data = get_data()
-st.dataframe(data, width=1000, height=400)
-
-st.header("➕ Add New Data")
-with st.form(key='add_data_form'):
-    new_data = {}
-    columns = data.columns
-    for column in columns:
-        new_data[column] = st.text_input(f"Enter {column}", "")
-
-    submit_button = st.form_submit_button(label='Add Data')
-
-if submit_button:
-    if any(new_data.values()):
-        add_data_to_sheet(list(new_data.values()))
-        st.success("Data added successfully")
-        st.experimental_rerun()
-    else:
-        st.error("Please fill in at least one field.")
-
-data = get_data()
-st.header("📄 Updated Data")
-st.dataframe(data, width=1000, height=400)
-
-st.header("✏️ Edit Data")
-selected_row = st.number_input("Enter the row number to edit", min_value=1, max_value=len(data))
-if selected_row:
-    with st.form(key='edit_data_form'):
-        row_data = data.iloc[selected_row-1].to_dict()
-        new_data = {}
-        for column, value in row_data.items():
-            new_data[column] = st.text_input(f"Enter new {column}", value)
-
-        update_button = st.form_submit_button(label='Update Data')
-
-    if update_button:
-        if any(new_data.values()):
-            update_data_in_sheet(selected_row, list(new_data.values()))
-            st.success("Data updated successfully")
-            st.experimental_rerun()
-        else:
-            st.error("Please fill in at least one field.")
-
-    data = get_data()
-    st.dataframe(data, width=1000, height=400)
-
-st.header("❌ Delete Data")
-delete_row = st.number_input("Enter the row number to delete", min_value=1, max_value=len(data))
-delete_button = st.button(label='Delete Data')
-
-if delete_button:
-    delete_data_in_sheet(delete_row)
-    st.success("Data deleted successfully")
+# Function to complete a task
+def complete_task(index):
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    worksheet.update_cell(index + 2, 2, current_time)  # Date and time column
+    worksheet.update_cell(index + 2, 3, 'done')  # Status column
+    st.success('Task completed successfully!')
     st.experimental_rerun()
 
-    data = get_data()
-    st.dataframe(data, width=1000, height=400)
+# Function to delete a task
+def delete_task(index):
+    worksheet.delete_rows(index + 2)  # +2 because Google Sheets starts from row 1 and there's a header row
+    st.success('Task deleted successfully!')
+    st.experimental_rerun()
+
+# Function to edit a task
+def edit_task(index, new_title):
+    try:
+        worksheet.update_cell(index + 2, 1, new_title)  # Title column
+        st.success('Task title updated successfully!')
+        st.experimental_rerun()
+    except Exception as e:
+        st.error(f"Error editing task title: {e}")
+
+# Display data
+st.header("Task Management App")
+
+# Form to add a new task
+with st.form(key='add_form'):
+    new_task = st.text_input('New Task')
+    submit_button = st.form_submit_button(label='Add Task')
+
+if submit_button and new_task:
+    add_task(new_task)
+
+# Display task list
+st.header("Tasks List")
+data = read_data()
+if not data.empty:
+    for index, row in data.iterrows():
+        task_text = row['Task']
+        task_date = row['Date']
+        is_completed = row['Completed'] == 'done'
+        
+        col1, col2, col3, col4 = st.columns([4, 3, 2, 1])
+        
+        with col1:
+            new_task_title = st.text_input('Edit Task Title', value=task_text, key=f"edit_{index}")
+            if st.button("Update Title", key=f"update_{index}"):
+                edit_task(index, new_task_title)
+
+        with col2:
+            checkbox = st.checkbox(f"{task_text} (Completed on: {task_date})", value=is_completed, key=f"task_{index}")
+
+        with col3:
+            if st.button("Delete", key=f"delete_{index}"):
+                delete_task(index)
+
+        if checkbox and not is_completed:
+            complete_task(index)
+
+else:
+    st.write("No tasks found.")
+
+# Display data as a table
+st.header("Tasks Data")
+st.dataframe(data)
