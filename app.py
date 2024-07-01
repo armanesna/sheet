@@ -4,10 +4,33 @@ import pandas as pd
 from datetime import datetime
 from google.oauth2.service_account import Credentials
 
+import streamlit as st
+from google.oauth2.service_account import Credentials
+import gspread
+
 
 # تنظیمات احراز هویت
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
+# مسیر فایل JSON را به صورت نسبی تنظیم کنید
+json_file_path = "booming-voice-427922-g9-3f3dcbe42752.json"
+
+# تنظیم محدوده دسترسی
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+
+# بارگذاری اعتبارنامه‌ها
+creds = Credentials.from_service_account_file(json_file_path, scopes=scope)
+
+# احراز هویت و دسترسی به Google Sheets
+client = gspread.authorize(creds)
+
+# دسترسی به یک Sheet
+sheet = client.open("your-google-sheet-name").sheet1
+
+# خواندن داده‌ها از Sheet
+data = sheet.get_all_records()
+
+# نمایش داده‌ها در Streamlit
+st.write(data)
 
 client = gspread.authorize(creds)
 
