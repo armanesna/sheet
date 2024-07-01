@@ -5,7 +5,7 @@ import pandas as pd
 from datetime import datetime
 
 # Load the credentials from the JSON file
-credentials_path = '/mnt/data/booming-voice-427922-g9-3f3dcbe42752.json'
+credentials_path = '/mnt/data/credentials.json'
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds = Credentials.from_service_account_file(credentials_path, scopes=scope)
 client = gspread.authorize(creds)
